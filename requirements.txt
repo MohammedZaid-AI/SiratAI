@@ -15,7 +15,7 @@ gunicorn
 chromadb
 flask
 python-dotenv
-pinecone-client
+pinecone
 sentence-transformers
 langchain-google-genai
 langchain-core
