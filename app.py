@@ -1,8 +1,8 @@
 from flask import Flask, request, jsonify, render_template
 import os
+import requests
 from dotenv import load_dotenv
 from pinecone import Pinecone
-from sentence_transformers import SentenceTransformer
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 import traceback
@@ -10,44 +10,47 @@ import traceback
 load_dotenv()
 
 # -------------------------
-# PINECONE SETUP
+# HuggingFace: Free Embeddings
+# -------------------------
+HF_TOKEN = os.getenv("HF_API_KEY")
+
+def embed_query(text):
+    url = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
+    
+    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+    payload = {"inputs": text}
+
+    response = requests.post(url, headers=headers, json=payload, timeout=20)
+    data = response.json()
+
+    # HF returns list[list[vector]] — extract correctly
+    if isinstance(data, list) and isinstance(data[0], list):
+        return data[0]  # vector
+    else:
+        raise Exception(f"HF API Error: {data}")
+
+
+# -------------------------
+# Pinecone Setup
 # -------------------------
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index(os.getenv("INDEX_NAME"))
 
-# -------------------------
-# EMBEDDING MODEL
-# -------------------------
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
 # -------------------------
-# RETRIEVER FUNCTION
-# -------------------------
-def retrieve_from_pinecone(query, top_k=3):
-    q_emb = embedding_model.encode(query).tolist()
-
-    result = index.query(
-        vector=q_emb,
-        top_k=top_k,
-        include_metadata=True
-    )
-
-    return [match["metadata"]["text"] for match in result["matches"]]
-
-# -------------------------
-# LLM SETUP
+# Gemini LLM
 # -------------------------
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",
-    temperature=0.9,
-    max_output_tokens=1000
+    temperature=0.2,
+    max_output_tokens=700
 )
 
 prompt = PromptTemplate(
     input_variables=["context", "query"],
     template="""
 You are SiratGPT, an Islamic knowledge assistant.
-Use only the given Quran context.
+Use ONLY the provided Quran context.
 
 Context:
 {context}
@@ -55,14 +58,30 @@ Context:
 User Question:
 {query}
 
-Answer respectfully:
+Answer respectfully and authentically:
 """
 )
 
 chain = prompt | llm
 
+
 # -------------------------
-# FLASK SETUP
+# Retrieval
+# -------------------------
+def retrieve_from_pinecone(query, top_k=3):
+    vector = embed_query(query)
+
+    result = index.query(
+        vector=vector,
+        top_k=top_k,
+        include_metadata=True
+    )
+
+    return [m["metadata"]["text"] for m in result["matches"]]
+
+
+# -------------------------
+# Flask Setup
 # -------------------------
 app = Flask(__name__)
 
@@ -70,15 +89,11 @@ app = Flask(__name__)
 def home():
     return render_template("index.html")
 
+
 @app.route("/api/query", methods=["POST"])
 def query_api():
     try:
         user_input = request.form.get("input_text", "")
-
-        if "created" in user_input.lower() and "sirat" in user_input.lower():
-            return jsonify({"response":
-                "SiratGPT was created by Zaid, Founder of HatchUp.ai, to bring Islamic knowledge to the digital world."
-            })
 
         results = retrieve_from_pinecone(user_input)
         context = "\n\n".join(results)
@@ -92,6 +107,7 @@ def query_api():
     except Exception as e:
         print(traceback.format_exc())
         return jsonify({"response": f"Error: {str(e)}"})
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))

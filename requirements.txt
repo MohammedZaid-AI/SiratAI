@@ -2,7 +2,8 @@ flask
 gunicorn
 python-dotenv
 pinecone
-sentence-transformers
+requests
 langchain-google-genai
 langchain-core
 langchain-community
+langchain-text-splitters
