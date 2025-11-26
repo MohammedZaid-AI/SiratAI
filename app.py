@@ -15,7 +15,7 @@ load_dotenv()
 HF_TOKEN = os.getenv("HF_API_KEY")
 
 def embed_query(text):
-    url = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
+    url = "https://router.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
     
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
     payload = {"inputs": text}
@@ -23,11 +23,11 @@ def embed_query(text):
     response = requests.post(url, headers=headers, json=payload, timeout=20)
     data = response.json()
 
-    # HF returns list[list[vector]] — extract correctly
     if isinstance(data, list) and isinstance(data[0], list):
-        return data[0]  # vector
+        return data[0]   # embedding vector
     else:
         raise Exception(f"HF API Error: {data}")
+
 
 
 # -------------------------
