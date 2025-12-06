@@ -7,27 +7,17 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 import traceback
 
+# Load environment variables (only needed locally)
 load_dotenv()
 
 # -------------------------
-# HuggingFace: Free Embeddings
+# Local Embedding Model
 # -------------------------
-HF_TOKEN = os.getenv("HF_API_KEY")
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
 def embed_query(text):
-    url = "https://router.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
-    
-    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-    payload = {"inputs": text}
-
-    response = requests.post(url, headers=headers, json=payload, timeout=20)
-    data = response.json()
-
-    if isinstance(data, list) and isinstance(data[0], list):
-        return data[0]   # embedding vector
-    else:
-        raise Exception(f"HF API Error: {data}")
-
+    return model.encode(text).tolist()
 
 
 # -------------------------
@@ -38,7 +28,7 @@ index = pc.Index(os.getenv("INDEX_NAME"))
 
 
 # -------------------------
-# Gemini LLM
+# Gemini LLM Setup
 # -------------------------
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",
@@ -58,12 +48,11 @@ Context:
 User Question:
 {query}
 
-Answer respectfully and authentically:
+Answer respectfully and accurately:
 """
 )
 
 chain = prompt | llm
-
 
 # -------------------------
 # Retrieval
@@ -81,7 +70,7 @@ def retrieve_from_pinecone(query, top_k=3):
 
 
 # -------------------------
-# Flask Setup
+# Flask App
 # -------------------------
 app = Flask(__name__)
 
@@ -92,12 +81,16 @@ def home():
 
 @app.route("/api/query", methods=["POST"])
 def query_api():
+
+    
     try:
         user_input = request.form.get("input_text", "")
+        if "created" in user_input.lower() and "sirat" in user_input.lower():
+            return jsonify({"response": "SiratGPT was created by Zaid, a visionary AI engineer and entrepreneur who is passionate about fusing technology with knowledge. As the Founder of HatchUp.ai, Zaid built SiratGPT to bring deep Islamic insights to the digital world, combining modern AI techniques with timeless wisdom. His expertise in AI, app development, and automation drives this project, making SiratGPT a unique and intelligent guide for seekers of knowledge"})
 
         results = retrieve_from_pinecone(user_input)
         context = "\n\n".join(results)
-
+        
         if not context.strip():
             return jsonify({"response": "No relevant Quran context found."})
 
@@ -110,6 +103,6 @@ def query_api():
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))
+    port = int(os.getenv("PORT", 7860))
     print(f"🔥 SiratGPT running on port {port}")
     app.run(host="0.0.0.0", port=port)

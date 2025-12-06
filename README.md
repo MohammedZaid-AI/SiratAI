@@ -1,128 +1,90 @@
-# SiratGPT
+SiratGPT is a Flask-based Retrieval-Augmented Generation (RAG) chatbot that answers questions using Quran content.
+This project uses:
 
-SiratGPT is an AI chatbot designed to provide information about Islam by searching through Hadith and Quran databases. The application leverages modern AI techniques to provide accurate and detailed responses to user queries about Islamic topics.
+Pinecone (vector DB) — stores embeddings and text chunks
 
-## Features
+Local embedding model (sentence-transformers / MiniLM) for indexing & queries
 
-- Search through Hadith database using MongoDB
-- Extract relevant information from the Quran using semantic search
-- Option for deep search with extended AI responses
-- Professional, modern UI with chat interface
-- Source selection (Hadith, Quran, or both)
-- Conversation history tracking
-- Mobile-responsive design
-- Dark/light theme toggle
+Gemini Flash (via langchain-google-genai) for final LLM responses
 
-## Requirements
+Flask + HTML frontend
 
-- Python 3.8+
-- MongoDB running locally
-- Required Python packages (see `requirements.txt`)
+Deployed on HuggingFace Spaces (Docker) — free + supports local models
 
-## Installation
+Important: PDFs are used only for indexing locally.
+You do NOT upload your PDFs to the deployed app.
 
-1. Clone this repository
-2. Install the required dependencies:
+Repository structure
+siratgpt/
+├─ app.py                 # Flask server (production)
+├─ build_index.py         # Run locally to create & upload vectors to Pinecone
+├─ requirements.txt       # Dependencies for HF Spaces and local dev
+├─ Dockerfile             # Required for HuggingFace Docker Space
+├─ README.md
+├─ templates/
+│   └─ index.html         # Your frontend UI
+├─ static/
+│   └─ ...                # CSS / JS / Images
+└─ pdfs/                  # Local PDFs (NOT uploaded to HuggingFace)
 
-```bash
+Quick Start (Local Development)
+
+Use these steps to index PDFs and test your app locally.
+
+1. Create & activate a Python virtual environment
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# macOS / Linux
+source venv/bin/activate
+
+2. Install required packages
 pip install -r requirements.txt
-```
 
-3. Ensure MongoDB is running locally at `mongodb://localhost:27017/` with the SiratGPT database and Hadiths collection
-4. Ensure you have the Quran PDF file (`quran-english-translation.pdf`) in the root directory
 
-## Quick Start
+For local indexing (ONLY needed locally):
 
-### On Windows:
-Simply double-click the `start.bat` file or run it from the command line:
-```
-start.bat
-```
+pip install sentence-transformers torch
 
-### On Linux/Mac:
-Make the script executable and run it:
-```bash
-chmod +x start.sh
-./start.sh
-```
 
-The startup scripts will:
-1. Start the Streamlit backend (app.py)
-2. Start the Flask server (server.py)
-3. Open your default browser to http://localhost:5000
+NOTE: requirements.txt already contains all packages used on HuggingFace Spaces.
+Locally, your system may need PyTorch installed separately.
 
-## Manual Usage
+3. Create a .env file (DO NOT COMMIT IT)
 
-If you prefer to start the services manually:
+Create a .env file in the project root:
 
-### Step 1: Start the Streamlit Backend
+PINECONE_API_KEY=your_pinecone_api_key
+INDEX_NAME=sirat-index
+GOOGLE_API_KEY=your_google_api_key
+PORT=7860
 
-```bash
-python -m streamlit run app.py
-```
+4. Add your PDF files into the pdfs/ folder
 
-### Step 2: Start the Flask Server
+This folder is ONLY used locally for building the index.
 
-```bash
-python server.py
-```
+5. Build the index (upload vectors to Pinecone)
+python build_index.py
 
-### Step 3: Open the Interface
 
-Open your browser and navigate to http://localhost:5000
+This script:
 
-## Using the Interface
+Loads PDFs
 
-- **Ask Questions**: Type your questions about Islamic topics in the input field
-- **Source Selection**: Choose between Hadith, Quran, or Both sources using the selector at the top
-- **Deep Search**: Toggle Deep Search mode for more comprehensive answers
-- **Quick Prompts**: Click on the suggestion cards for quick access to common topics
-- **New Conversation**: Click the "New Conversation" button to start fresh
-- **Theme Toggle**: Click the sun/moon icon to switch between light and dark themes
+Splits into text chunks
 
-## Developer Information
+Generates embeddings using all-MiniLM-L6-v2
 
-### File Structure
+Uploads embeddings to Pinecone
 
-- `app.py` - Original Streamlit application with core functionality
-- `server.py` - Flask server that connects the frontend to the backend
-- `index.html` - Single HTML file containing all UI components (HTML/CSS/JS)
-- `start.bat` - Windows startup script
-- `start.sh` - Linux/Mac startup script
-- `requirements.txt` - List of Python dependencies
+You only need to run this again when PDFs change.
 
-### Customization
+6. Run the app locally
+python app.py
 
-#### Modifying the Backend
 
-The backend functionality is in `app.py` with the connection layer in `server.py`:
+Visit the app at:
 
-1. Add new functions to `app.py` as needed
-2. Update the integration section in `server.py` to call these functions
-3. Modify the frontend JavaScript to send additional parameters as needed
-
-#### Customizing the UI
-
-The UI is contained in a single HTML file (`index.html`) with embedded CSS and JavaScript:
-
-1. Edit the CSS variables in the `:root` section to change colors and theme
-2. Modify the HTML structure to add or remove elements
-3. Update the JavaScript to change functionality
-
-## Troubleshooting
-
-### Common Issues
-
-- **MongoDB Connection**: Ensure MongoDB is running and accessible at localhost:27017
-- **Missing Quran PDF**: Make sure the `quran-english-translation.pdf` file is in the root directory
-- **Port Conflicts**: If port 5000 or 8501 is already in use, modify the port in `server.py` or use Streamlit's options
-
-### Error Messages
-
-- "I'm having trouble connecting to the database": Check that both app.py and server.py are running
-- "Network response was not ok": Verify that the API endpoint is accessible
-- Streamlit access errors: Make sure you're accessing the UI through the Flask server (port 5000), not directly through Streamlit
-
-## Creator
-
-SiratGPT was created by Zaid, a visionary AI engineer and entrepreneur who is passionate about fusing technology with Islamic knowledge. As the Founder of HatchUp.ai, Zaid built SiratGPT to bring deep Islamic insights to the digital world, combining modern AI techniques with timeless wisdom. 
+👉 http://127.0.0.1:7860
